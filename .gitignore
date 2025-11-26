@@ -1,0 +1,19 @@
+# Bỏ qua thư mục môi trường ảo (Cực nặng)
+venv/
+env/
+
+# Bỏ qua file rác của Python
+__pycache__/
+*.pyc
+
+# Bỏ qua file dữ liệu chạy (không up lên code nguồn)
+flood_log.csv
+
+# Bỏ qua các phần mềm exe nặng (FFmpeg, MediaMTX)
+*.exe
+*.zip
+*.7z
+*.rar
+
+# Bỏ qua cấu hình riêng của VS Code
+.vscode/

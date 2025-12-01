@@ -1,7 +1,7 @@
 # file cấu hình
 
 # Cấu hình MQTT Broker (Server trung tâm)
-MQTT_BROKER = "1c33c1ced0e51119" # Thay bằng IP máy Server thật
+MQTT_BROKER = "localhost" # Thay bằng IP máy Server thật
 MQTT_PORT = 1883
 MQTT_TOPIC_DATA = "lu_lut/tram_01/data"
 MQTT_TOPIC_STATUS = "lu_lut/tram_01/status"
@@ -10,7 +10,7 @@ MQTT_TOPIC_STATUS = "lu_lut/tram_01/status"
 # Bây giờ hệ thống Edge sẽ hoạt động như sau:
 # Camera Đt -> FFmpeg (Copy) -> MediaMTX (Localhost) -> AI & Web
 
-RTSP_URL = "rtsp://1c33c1ced0e51119:8554/live" 
+RTSP_URL = "rtsp://localhost:8554/live" 
 
 # Ngưỡng cảnh báo (cm)
 LEVEL_ALARM_1 = 150 # Báo động cấp 1

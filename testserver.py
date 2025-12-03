@@ -7,13 +7,13 @@ import time
 import streamlit.components.v1 as components # Để nhúng Video
 
 # --- CẤU HÌNH HỆ THỐNG (Khớp với config.py ở Edge) ---
-MQTT_BROKER = "localhost"
+MQTT_BROKER = "10.147.20.109"
 MQTT_PORT = 1883
 MQTT_TOPIC = "lu_lut/tram_01/data"  # <--- Đã sửa cho đúng topic
 LOG_FILE = "flood_log.csv"
 
 # Link xem video qua WebRTC (Do MediaMTX cung cấp)
-VIDEO_URL = "http://1c33c1ced0e51119:8889/live" 
+VIDEO_URL = "http://10.147.20.109:8889/live" 
 
 # --- CẤU HÌNH GIAO DIỆN WEB ---
 st.set_page_config(

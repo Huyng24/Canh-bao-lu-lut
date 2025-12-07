@@ -1,5 +1,0 @@
-opencv-python
-paho-mqtt
-streamlit
-pandas
-watchdog

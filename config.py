@@ -18,3 +18,7 @@ LEVEL_ALARM_2 = 200 # Báo động cấp 2 (Nguy hiểm)
 
 # Cấu hình Radio (LoRa)
 LORA_FREQ = 433.0
+
+# --- CẤU HÌNH AI ---
+AI_MODEL_PATH = "flood_model.pt" 
+AI_CONF_THRESHOLD = 0.5 # Độ tin cậy (trên 50% mới báo)

@@ -13,7 +13,7 @@ MQTT_BROKER = "192.168.1.X" # <--- THAY IP CỦA LAPTOP 2 VÀO ĐÂY
 MQTT_PORT = 1883
 MQTT_TOPIC = "flood/alert"
 DEVICE_ID = "EDGE_UNIT_01"
-MODEL_PATH = "CodeAI/flood_model.pt" # <--- TÊN FILE MODEL BẠN VỪA TẢI
+MODEL_PATH = "flood_model.pt" # <--- TÊN FILE MODEL BẠN VỪA TẢI
 CONF_THRESHOLD = 0.5          # Độ tin cậy (trên 50% mới báo)
 
 # Giả lập GPIO

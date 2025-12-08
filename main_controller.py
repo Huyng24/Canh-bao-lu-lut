@@ -1,31 +1,36 @@
 # main_controller.py
 import time
 import json
+import cv2
 import paho.mqtt.client as mqtt
 from collections import deque
 from datetime import datetime
 
-# Import các module tự viết
+# Import module cấu hình và các module chức năng
 import config
-from modules import ai_dummy, radio_lora
+from modules import radio_lora, ai_yolo  # <--- Đã đổi sang dùng AI YOLO thật
 
 class EdgeController:
     def __init__(self):
-        # Biến trạng thái
+        # Biến trạng thái kết nối
         self.is_connected = False
         # Hàng đợi lưu trữ khi mất mạng (Lưu tối đa 2000 bản tin)
         self.offline_buffer = deque(maxlen=2000)
         
-        # Cấu hình MQTT
+        # 1. Khởi tạo MQTT Client
         self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         self.client.on_connect = self.on_connect
         self.client.on_disconnect = self.on_disconnect
+        
+        # 2. Khởi tạo AI Engine (Load Model YOLO)
+        # Bước này sẽ tốn chút thời gian để load file .pt
+        self.ai_engine = ai_yolo.FloodDetector()
 
     def on_connect(self, client, userdata, flags, reason_code, properties):
         if reason_code == 0:
             self.is_connected = True
             print(f"✅ [MQTT] Đã kết nối Server {config.MQTT_BROKER}")
-            # Gửi dữ liệu cũ ngay khi có mạng
+            # Gửi bù dữ liệu cũ ngay khi có mạng lại
             self.flush_buffer()
         else:
             print(f"❌ [MQTT] Kết nối thất bại mã: {reason_code}")
@@ -35,69 +40,94 @@ class EdgeController:
         print("⚠️ [MQTT] Mất kết nối! Chuyển sang chế độ Offline.")
 
     def start(self):
-        """Bắt đầu chạy hệ thống"""
-        print("🚀 Hệ thống giám sát lũ lụt biên khởi động...")
+        print("🚀 Hệ thống EDGE AI khởi động...")
+        
+        # --- BƯỚC 1: KẾT NỐI MQTT ---
         try:
             self.client.connect(config.MQTT_BROKER, config.MQTT_PORT, 60)
-            self.client.loop_start() # Chạy luồng ngầm MQTT
+            self.client.loop_start() # Chạy luồng ngầm để giữ kết nối
         except Exception as e:
-            print(f"⚠️ Không thể kết nối Server ban đầu: {e}")
+            print(f"⚠️ Lỗi MQTT ban đầu (Hệ thống vẫn chạy Offline): {e}")
 
-        # VÒNG LẶP CHÍNH (Main Loop)
-        while True:
-            try:
-                self.process_cycle()
-                time.sleep(2) # Chu kỳ lấy mẫu 2 giây
-            except KeyboardInterrupt:
-                print("Dừng hệ thống.")
-                self.client.loop_stop()
-                break
+        # --- BƯỚC 2: KẾT NỐI CAMERA (RTSP) ---
+        print(f"🎥 Đang kết nối luồng Video: {config.RTSP_URL}")
+        cap = cv2.VideoCapture(config.RTSP_URL)
 
-    def process_cycle(self):
-        """Logic xử lý từng chu kỳ"""
-        
-        # 1. Lấy dữ liệu từ AI (Module của bạn kia)
-        muc_nuoc, trang_thai = ai_dummy.get_ai_result()
-        
-        # 2. Tạo gói tin JSON chuẩn
-        payload = {
-            "device_id": "TRAM_01",
-            "timestamp": datetime.now().isoformat(),
-            "water_level": muc_nuoc,
-            "status": trang_thai,
-            "rtsp_link": config.RTSP_URL, # Gửi kèm link video
-            "mode": "ONLINE" if self.is_connected else "OFFLINE_SAVED"
-        }
-        json_str = json.dumps(payload)
-
-        # 3. Logic QUYẾT ĐỊNH (Decision Making)
-        
-        if self.is_connected:
-            # --- TRƯỜNG HỢP CÓ MẠNG ---
-            self.client.publish(config.MQTT_TOPIC_DATA, json_str)
-            print(f"☁️ [Gửi Server] {muc_nuoc}cm - {trang_thai}")
-            
-        else:
-            # --- TRƯỜNG HỢP MẤT MẠNG ---
-            # A. Lưu vào bộ nhớ đệm
-            self.offline_buffer.append(json_str)
-            print(f"💾 [Lưu Buffer] {len(self.offline_buffer)} bản tin chờ gửi.")
-            
-            # B. Kiểm tra xem có cần báo động Radio không?
-            # (Chỉ báo Radio khi mất mạng VÀ có nguy hiểm)
-            if trang_thai in ["CANH_BAO", "NGUY_HIEM"]:
-                radio_lora.send_emergency_signal(muc_nuoc, trang_thai)
-
-    def flush_buffer(self):
-        """Gửi bù dữ liệu khi có mạng lại"""
-        if not self.offline_buffer:
+        if not cap.isOpened():
+            print("❌ LỖI NGHIÊM TRỌNG: Không thể mở luồng Video!")
+            print("   -> Hãy kiểm tra lại: FFmpeg đã chạy chưa? IP ZeroTier đúng chưa?")
             return
 
-        print(f"🔄 Đang đồng bộ {len(self.offline_buffer)} bản tin cũ lên Server...")
+        # --- BƯỚC 3: VÒNG LẶP CHÍNH (XỬ LÝ LIÊN TỤC) ---
+        while True:
+            try:
+                # 1. Đọc khung hình từ luồng Video
+                ret, frame = cap.read()
+                if not ret:
+                    print("⚠️ Mất tín hiệu Video, đang thử kết nối lại...")
+                    time.sleep(1)
+                    continue 
+
+                # 2. Đưa ảnh cho AI xử lý
+                # Hàm này trả về: Mực nước, Trạng thái, và Ảnh đã vẽ khung
+                muc_nuoc, trang_thai, processed_frame = self.ai_engine.detect(frame)
+
+                # (Tùy chọn) Hiện cửa sổ xem trước trên máy Edge để debug
+                # Bạn có thể bỏ comment dòng dưới nếu muốn xem trực tiếp trên máy này
+                # cv2.imshow("Edge Monitor", processed_frame)
+                # if cv2.waitKey(1) & 0xFF == ord('q'): break
+
+                # 3. Tạo gói tin JSON
+                payload = {
+                    "device_id": "TRAM_01",
+                    "timestamp": datetime.now().isoformat(),
+                    "water_level": muc_nuoc,
+                    "status": trang_thai,
+                    "rtsp_link": config.RTSP_URL, # Gửi kèm link để Web biết đường mở video
+                    "mode": "ONLINE" if self.is_connected else "OFFLINE_SAVED"
+                }
+                json_str = json.dumps(payload)
+
+                # 4. Logic Quyết định (Gửi đi hay Lưu lại?)
+                if self.is_connected:
+                    # --- CÓ MẠNG: Gửi ngay ---
+                    self.client.publish(config.MQTT_TOPIC_DATA, json_str)
+                    print(f"☁️ [Online] Nước: {muc_nuoc:.1f}cm | {trang_thai}")
+                else:
+                    # --- MẤT MẠNG: Lưu vào Buffer ---
+                    self.offline_buffer.append(json_str)
+                    print(f"💾 [Offline] Đã lưu {len(self.offline_buffer)} tin.")
+                    
+                    # Logic Radio khẩn cấp (Chỉ kích hoạt khi Nguy hiểm + Mất mạng)
+                    if trang_thai == "NGUY_HIEM":
+                        radio_lora.send_emergency_signal(muc_nuoc, trang_thai)
+
+                # Giảm tải CPU (AI chạy nặng, sleep ít thôi)
+                # Chỉnh số này nếu muốn gửi nhanh hơn hoặc chậm hơn
+                time.sleep(0.5) 
+
+            except KeyboardInterrupt:
+                print("\n🛑 Dừng hệ thống theo yêu cầu người dùng.")
+                self.client.loop_stop()
+                cap.release()
+                cv2.destroyAllWindows()
+                break
+            except Exception as e:
+                print(f"❌ Lỗi trong vòng lặp chính: {e}")
+                time.sleep(1)
+
+    def flush_buffer(self):
+        """Gửi bù dữ liệu từ bộ nhớ đệm khi có mạng lại"""
+        if not self.offline_buffer: return
+        
+        count = len(self.offline_buffer)
+        print(f"🔄 Đang đồng bộ {count} bản tin cũ lên Server...")
+        
         while self.offline_buffer:
             msg = self.offline_buffer.popleft()
             self.client.publish(config.MQTT_TOPIC_DATA, msg)
-            time.sleep(0.05) # Delay nhỏ để tránh nghẽn mạng
+            time.sleep(0.05) # Delay nhỏ để tránh nghẽn mạng MQTT
+            
         print("✅ Đồng bộ hoàn tất!")
 
 # Chạy chương trình

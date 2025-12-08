@@ -71,9 +71,16 @@ class EdgeController:
                     cap.grab()
                 ret, frame = cap.read()
                 if not ret:
-                    print("⚠️ Mất tín hiệu Video, đang thử kết nối lại...")
-                    time.sleep(1)
-                    continue 
+                    print("⚠️ Mất tín hiệu Video! Đang thử kết nối lại sau 2 giây...")
+                    cap.release() # Hủy kết nối cũ
+                    time.sleep(2) 
+                    # Thử kết nối lại
+                    cap = cv2.VideoCapture(config.RTSP_URL)
+                    if not cap.isOpened():
+                        print("❌ Vẫn chưa kết nối được...")
+                    else:
+                        print("✅ Đã kết nối lại thành công!")
+                    continue
 
                 # 2. Đưa ảnh cho AI xử lý
                 # Hàm này trả về: Mực nước, Trạng thái, và Ảnh đã vẽ khung

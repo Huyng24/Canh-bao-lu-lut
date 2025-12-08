@@ -6,6 +6,10 @@ import paho.mqtt.client as mqtt
 from collections import deque
 from datetime import datetime
 
+# thử ÉP OPENCV DÙNG TCP (Ổn định hơn UDP)
+import os # <--- Nhớ import os
+os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
+
 # Import module cấu hình và các module chức năng
 import config
 from modules import radio_lora, ai_yolo  # <--- Đã đổi sang dùng AI YOLO thật
@@ -62,6 +66,9 @@ class EdgeController:
         while True:
             try:
                 # 1. Đọc khung hình từ luồng Video
+                # Chỉ lấy frame cuối cùng (mới nhất) để xử lý
+                for _ in range(5): 
+                    cap.grab()
                 ret, frame = cap.read()
                 if not ret:
                     print("⚠️ Mất tín hiệu Video, đang thử kết nối lại...")

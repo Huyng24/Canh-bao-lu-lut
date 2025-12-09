@@ -66,9 +66,6 @@ class EdgeController:
         while True:
             try:
                 # 1. Đọc khung hình từ luồng Video
-                # Chỉ lấy frame cuối cùng (mới nhất) để xử lý
-                for _ in range(5): 
-                    cap.grab()
                 ret, frame = cap.read()
                 if not ret:
                     print("⚠️ Mất tín hiệu Video! Đang thử kết nối lại sau 2 giây...")
@@ -88,8 +85,8 @@ class EdgeController:
 
                 # (Tùy chọn) Hiện cửa sổ xem trước trên máy Edge để debug
                 # Bạn có thể bỏ comment dòng dưới nếu muốn xem trực tiếp trên máy này
-                # cv2.imshow("Edge Monitor", processed_frame)
-                # if cv2.waitKey(1) & 0xFF == ord('q'): break
+                cv2.imshow("Edge Monitor", processed_frame)
+                if cv2.waitKey(1) & 0xFF == ord('q'): break
 
                 # 3. Tạo gói tin JSON
                 payload = {

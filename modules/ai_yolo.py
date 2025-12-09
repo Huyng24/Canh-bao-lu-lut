@@ -1,6 +1,7 @@
 # modules/ai_yolo.py
-from ultralytics import YOLO
 import cv2
+import numpy as np
+from ultralytics import YOLO
 import config
 
 class FloodDetector:
@@ -8,68 +9,101 @@ class FloodDetector:
         print(f"🧠 [AI] Đang tải model: {config.AI_MODEL_PATH}...")
         try:
             self.model = YOLO(config.AI_MODEL_PATH)
-            # In ra danh sách các Class mà model này học được để kiểm tra
             print(f"✅ [AI] Model đã tải thành công!")
-            print(f"📋 Danh sách Class model nhận diện: {self.model.names}")
         except Exception as e:
-            print(f"❌ [AI] Lỗi tải Model (File lỗi hoặc sai đường dẫn): {e}")
+            print(f"❌ [AI] Lỗi tải Model: {e}")
             self.model = None
+
+        # --- CẤU HÌNH VÙNG CẢNH BÁO (ROI) ---
+        # Định nghĩa 4 điểm tạo thành hình tứ giác (vùng sông/suối)
+        # Bạn cần chỉnh các số này cho khớp với góc quay camera thực tế
+        # Tọa độ: [x, y]
+        self.zone_polygon = np.array([
+            [100, 480],   # Điểm dưới cùng bên trái
+            [200, 200],   # Điểm trên cùng bên trái (xa xa)
+            [440, 200],   # Điểm trên cùng bên phải (xa xa)
+            [540, 480]    # Điểm dưới cùng bên phải
+        ], np.int32)
+        
+        # Màu sắc
+        self.COLOR_ZONE = (255, 255, 0) # Màu xanh lơ (Vùng an toàn)
+        self.COLOR_WARN = (0, 0, 255)   # Màu đỏ (Khi có lũ)
 
     def detect(self, frame):
         """
-        Input: Khung hình Camera
-        Output: Mực nước (ước lượng), Trạng thái, Khung hình đã vẽ báo động
+        Input: Frame hình ảnh
+        Output: Mực nước (cm), Trạng thái, Frame đã vẽ
         """
         if self.model is None or frame is None:
             return 0, "LOI_MODEL", frame
 
-        # Chạy nhận diện
+        # 1. Vẽ vùng cảnh báo lên màn hình để dễ quan sát
+        # reshape để đúng định dạng opencv
+        cv2.polylines(frame, [self.zone_polygon], isClosed=True, color=self.COLOR_ZONE, thickness=2)
+
+        # 2. Chạy nhận diện AI
         results = self.model(frame, conf=config.AI_CONF_THRESHOLD, verbose=False)
         
-        is_flood = False
-        water_level = 50.0 # Mức nước bình thường (giả định)
+        max_water_level = 0.0
+        is_flood_in_zone = False
         
-        # --- LOGIC XỬ LÝ MODEL CUSTOM ---
+        height_img, width_img = frame.shape[:2]
+
         for r in results:
             boxes = r.boxes
-            
-            # Nếu model phát hiện ra bất cứ cái gì -> Coi là có dấu hiệu nước/lũ
-            if len(boxes) > 0:
-                is_flood = True
+            for box in boxes:
+                # Lấy tọa độ hộp
+                x1, y1, x2, y2 = box.xyxy[0]
+                x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
                 
-                for box in boxes:
-                    # Lấy thông tin hộp
-                    x1, y1, x2, y2 = box.xyxy[0]
-                    x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
-                    conf = float(box.conf)
-                    cls_id = int(box.cls[0])
-                    class_name = self.model.names[cls_id] # Tên class (vd: 'flood')
+                # Tính điểm trung tâm đáy của hộp (chân của dòng nước/vật thể)
+                # Đây là điểm quan trọng nhất để tính mực nước
+                cx = int((x1 + x2) / 2)
+                cy = int(y2) 
 
-                    # Tính toán mức nước giả định dựa trên độ cao của hộp phát hiện
-                    # Hộp càng to/càng cao -> Nước càng dâng
-                    height_img = frame.shape[0]
-                    bbox_height = y2 - y1
-                    # Công thức ước lượng: Vật thể chiếm bao nhiêu % khung hình
-                    water_level = 100 + (bbox_height / height_img) * 200 
+                # 3. Kiểm tra xem điểm này có nằm trong vùng cảnh báo không?
+                # measureDist=False: chỉ cần trả về +1 (trong), -1 (ngoài), 0 (trên cạnh)
+                is_inside = cv2.pointPolygonTest(self.zone_polygon, (cx, cy), False)
 
-                    # Vẽ khung cảnh báo
-                    color = (0, 0, 255) # Màu đỏ
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+                if is_inside >= 0:
+                    is_flood_in_zone = True
                     
-                    # Viết tên class và độ tin cậy
-                    label = f"{class_name} {conf:.2f}"
-                    cv2.putText(frame, label, (x1, y1 - 10), 
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+                    # --- TÍNH TOÁN MỰC NƯỚC (Logic mới) ---
+                    # Giả định: Đáy ảnh (y=480) là 0cm, Đỉnh vùng (y=200) là 200cm
+                    # Dùng hàm nội suy tuyến tính để map tọa độ Y sang Cm
+                    # pixel_y càng nhỏ (càng lên cao) -> mực nước càng cao
+                    
+                    y_min_zone = 200 # Tương ứng điểm cao nhất của vùng
+                    y_max_zone = 480 # Tương ứng điểm thấp nhất của vùng
+                    
+                    # Công thức map: Y thực tế -> [0cm - 200cm]
+                    current_level = np.interp(cy, [y_min_zone, y_max_zone], [200, 0])
+                    
+                    if current_level > max_water_level:
+                        max_water_level = round(current_level, 1)
 
-        # Quyết định trạng thái cuối cùng
-        if is_flood:
-            status = "NGUY_HIEM"
-            cv2.putText(frame, f"CANH BAO: {status}", (20, 40), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
-        else:
-            status = "AN_TOAN"
-            water_level = 80.0 # Mức thấp
-            cv2.putText(frame, "BINH THUONG", (20, 40), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+                    # Vẽ cảnh báo đỏ rực
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), self.COLOR_WARN, 2)
+                    cv2.circle(frame, (cx, cy), 5, (0, 255, 0), -1) # Chấm điểm tâm
+                    cv2.putText(frame, f"Water: {max_water_level}cm", (x1, y1 - 10), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, self.COLOR_WARN, 2)
+                else:
+                    # Nếu vật thể ở ngoài vùng, vẽ màu xám cho biết "tao thấy mày nhưng tao kệ"
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (100, 100, 100), 1)
 
-        return water_level, status, frame
+        # 4. Xác định trạng thái cuối cùng
+        status = "AN_TOAN"
+        if is_flood_in_zone:
+            if max_water_level >= config.LEVEL_ALARM_2:
+                status = "NGUY_HIEM"
+            elif max_water_level >= config.LEVEL_ALARM_1:
+                status = "CANH_BAO"
+            
+            # Đổi màu khung vùng thành màu đỏ để báo động tổng thể
+            cv2.polylines(frame, [self.zone_polygon], isClosed=True, color=self.COLOR_WARN, thickness=3)
+            
+        # Hiển thị thông tin lên góc màn hình
+        cv2.putText(frame, f"LEVEL: {max_water_level}cm | {status}", (10, 30), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+
+        return max_water_level, status, frame

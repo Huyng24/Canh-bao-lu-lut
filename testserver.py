@@ -156,7 +156,7 @@ elif latest_status == "CANH_BAO":
 # --- PHẦN 3: GIAO DIỆN DASHBOARD ---
 
 # 3.1 Header
-st.markdown("<h1>🌊 TRUNG TÂM GIÁM SÁT & CẢNH BÁO LŨ SỚM</h1>", unsafe_allow_html=True)
+st.markdown("<h1>🌊 TRUNG TÂM GIÁM SÁT & CẢNH BÁO LŨ LỤT</h1>", unsafe_allow_html=True)
 
 # 3.2 Key Metrics (Hàng ngang trên cùng)
 col_m1, col_m2, col_m3, col_m4 = st.columns(4)

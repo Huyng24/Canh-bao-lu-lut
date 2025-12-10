@@ -108,11 +108,22 @@ class EdgeController:
 
                 # 4. Logic Quyết định (Gửi đi hay Lưu lại?)
                 if self.is_connected:
-                    # --- CÓ MẠNG: Gửi ngay ---
+                    # A. CÓ MẠNG: Gửi ngay 
                     self.client.publish(config.MQTT_TOPIC_DATA, json_str)
+                    # Phần mở rộng tùy chọn: gửi ảnh AI đã phân tích lên web
+                    # B. [QUAN TRỌNG] Gửi ảnh đã vẽ khung lên Web
+                    # Resize ảnh nhỏ lại (480x360) cho nhẹ mạng, Web load nhanh
+                    small_frame = cv2.resize(processed_frame, (480, 360))
+                    # Nén sang JPG chất lượng 60%
+                    _, buffer = cv2.imencode('.jpg', small_frame, [cv2.IMWRITE_JPEG_QUALITY, 60])
+                    # Chuyển sang Base64 để gửi qua MQTT
+                    jpg_as_text = base64.b64encode(buffer).decode('utf-8')
+                    # Gửi vào topic hình ảnh
+                    self.client.publish(config.MQTT_TOPIC_IMAGE, jpg_as_text)
+                    #---
                     print(f"☁️ [Online] Nước: {muc_nuoc:.1f}cm | {trang_thai}")
                 else:
-                    # --- MẤT MẠNG: Lưu vào Buffer ---
+                    # C. MẤT MẠNG: Lưu vào Buffer
                     self.offline_buffer.append(json_str)
                     print(f"💾 [Offline] Đã lưu {len(self.offline_buffer)} tin.")
                     

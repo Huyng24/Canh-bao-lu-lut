@@ -19,6 +19,7 @@ def send_emergency_signal(muc_nuoc, trang_thai):
 
     # Chỉ kích hoạt nếu lần báo trước cách đây hơn 3 giây
     if current_time - last_alert_time > 3.0:
+        print("\n" + "="*40)
         print("\n>>> [NGUY HIỂM] KÍCH HOẠT HỆ THỐNG PHẢN ỨNG NHANH <<<")
         
         # 1. Phát âm thanh cảnh báo (Tại chỗ)
@@ -32,7 +33,6 @@ def send_emergency_signal(muc_nuoc, trang_thai):
 
         # 2. Gửi tín hiệu Radio/LoRa (Đi xa)
         # (Ở đây là code giả lập in ra màn hình)
-        print("\n" + "="*40)
         print(f"🚨 [RADIO KÍCH HOẠT] GỬI TÍN HIỆU KHẨN CẤP!")
         print(f"   - Mực nước: {muc_nuoc} cm")
         print(f"   - Cảnh báo: {trang_thai}")

@@ -5,6 +5,7 @@ import cv2
 import paho.mqtt.client as mqtt
 from collections import deque
 from datetime import datetime
+import base64
 
 # thử ÉP OPENCV DÙNG TCP (Ổn định hơn UDP)
 import os # <--- Nhớ import os

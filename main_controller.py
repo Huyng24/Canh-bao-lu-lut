@@ -83,6 +83,13 @@ class EdgeController:
                 # Hàm này trả về: Mực nước, Trạng thái, và Ảnh đã vẽ khung
                 muc_nuoc, trang_thai, processed_frame = self.ai_engine.detect(frame)
 
+                # --- [QUAN TRỌNG] KÍCH HOẠT CẢNH BÁO TẠI CHỖ ---
+                # Nếu Nguy Hiểm -> Gọi Module Radio (đã tích hợp còi hú)
+                # Gọi bất kể có mạng hay không (Ưu tiên an toàn số 1)
+                if trang_thai == "NGUY_HIEM":
+                    radio_lora.send_emergency_signal(muc_nuoc, trang_thai)
+                # -----------------------------------------------
+
                 # (Tùy chọn) Hiện cửa sổ xem trước trên máy Edge để debug
                 # Bạn có thể bỏ comment dòng dưới nếu muốn xem trực tiếp trên máy này
                 cv2.imshow("Edge Monitor", processed_frame)
@@ -109,9 +116,6 @@ class EdgeController:
                     self.offline_buffer.append(json_str)
                     print(f"💾 [Offline] Đã lưu {len(self.offline_buffer)} tin.")
                     
-                    # Logic Radio khẩn cấp (Chỉ kích hoạt khi Nguy hiểm + Mất mạng)
-                    if trang_thai == "NGUY_HIEM":
-                        radio_lora.send_emergency_signal(muc_nuoc, trang_thai)
 
                 # Giảm tải CPU (AI chạy nặng, sleep ít thôi)
                 # Chỉnh số này nếu muốn gửi nhanh hơn hoặc chậm hơn

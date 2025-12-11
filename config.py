@@ -6,7 +6,7 @@ MQTT_PORT = 1883
 MQTT_TOPIC_DATA = "lu_lut/tram_01/data"
 MQTT_TOPIC_STATUS = "lu_lut/tram_01/status"
 # Tùy chọn mở rộng: gửi ảnh AI đã xử lý lên web
-MQTT_TOPIC_IMAGE = "lu_lut/tram_01/image"
+#MQTT_TOPIC_IMAGE = "lu_lut/tram_01/image"
 
 # Cấu hình Camera RTSP (Để gửi link về web)
 # Bây giờ hệ thống Edge sẽ hoạt động như sau:

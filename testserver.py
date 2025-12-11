@@ -82,6 +82,7 @@ def start_mqtt_listener():
     def on_message(client, userdata, msg):
         try:
             payload_str = msg.payload.decode()
+            print(f"📥 [DEBUG] Web nhận được tin: {payload_str}")
             data = json.loads(payload_str)
             record = {
                 "timestamp": data.get("timestamp"),

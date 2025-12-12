@@ -41,3 +41,4 @@ def send_emergency_signal(muc_nuoc, trang_thai):
         
         # Cập nhật thời gian
         last_alert_time = current_time
+#

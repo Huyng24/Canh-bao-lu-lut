@@ -7,11 +7,11 @@ import time
 import streamlit.components.v1 as components 
 
 # --- CẤU HÌNH HỆ THỐNG (GIỮ NGUYÊN LOGIC) ---
-MQTT_BROKER = "localhost"
+MQTT_BROKER = "10.216.77.109"
 MQTT_PORT = 1883
 MQTT_TOPIC = "lu_lut/tram_01/data"
 LOG_FILE = "flood_log.csv"
-VIDEO_URL = "http://localhost:8889/live" 
+VIDEO_URL = "http://10.216.77.109:8889/live" 
 
 # --- CẤU HÌNH TRANG WEB ---
 st.set_page_config(
@@ -270,3 +270,4 @@ st.markdown(f"""
 # Auto refresh
 time.sleep(2)
 st.rerun()
+#

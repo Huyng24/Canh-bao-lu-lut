@@ -104,3 +104,4 @@ class FloodDetector:
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
 
         return calculated_level, status, frame
+#

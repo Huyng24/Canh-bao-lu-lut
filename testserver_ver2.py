@@ -10,11 +10,14 @@ import numpy as np
 import queue 
 
 # --- CẤU HÌNH HỆ THỐNG ---
-MQTT_BROKER = "localhost" 
+MQTT_BROKER = "localhost"  # Hoặc IP ZeroTier
 MQTT_PORT = 1883
 MQTT_TOPIC_DATA = "lu_lut/tram_01/data"
 MQTT_TOPIC_IMAGE = "lu_lut/tram_01/image" 
-LOG_FILE = "flood_log.csv"
+
+# [FIX] Dùng đường dẫn tuyệt đối cho Log
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+LOG_FILE = os.path.join(CURRENT_DIR, "flood_log2.csv")
 
 # --- GLOBAL QUEUE ---
 if 'GLOBAL_QUEUE' not in globals():
@@ -28,7 +31,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- CSS GIAO DIỆN (GIỮ NGUYÊN CỦA BẠN) ---
+# --- CSS GIAO DIỆN ---
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
@@ -45,28 +48,29 @@ st.markdown("""
     h1 { color: #0d47a1; font-family: 'Helvetica', sans-serif; text-align: center; margin-bottom: 20px; }
     [data-testid="stMetricValue"] { font-size: 2rem; font-weight: bold; }
     .footer-status { font-size: 0.8rem; color: #666; text-align: right; margin-top: 20px; }
+    
+    /* [MỚI] Tùy chỉnh bảng dữ liệu cho đẹp hơn */
+    [data-testid="stDataFrame"] {
+        width: 100%;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# --- [SỬA LỖI] LOAD DỮ LIỆU TỪ CSV VÀO STATE NGAY TỪ ĐẦU ---
+# --- LOAD DỮ LIỆU LOG ---
 if "data" not in st.session_state:
     if os.path.exists(LOG_FILE):
         try:
-            # Đọc CSV cũ lên để hiển thị ngay
             df_old = pd.read_csv(LOG_FILE)
             st.session_state["data"] = df_old.to_dict('records')
-        except:
-            st.session_state["data"] = []
-    else:
-        st.session_state["data"] = []
+        except: st.session_state["data"] = []
+    else: st.session_state["data"] = []
 
 if "last_image" not in st.session_state: st.session_state["last_image"] = None
 if "latest_info" not in st.session_state: 
-    # Lấy thông tin cuối cùng từ lịch sử nếu có
     if len(st.session_state["data"]) > 0:
         last_item = st.session_state["data"][-1]
         st.session_state["latest_info"] = {
-            "timestamp": last_item.get("timestamp", "--"), 
+            "timestamp": str(last_item.get("timestamp", "--")), 
             "water_level": last_item.get("water_level", 0), 
             "status": last_item.get("status", "UNKNOWN"), 
             "mode": last_item.get("mode", "ONLINE")
@@ -77,69 +81,65 @@ if "latest_info" not in st.session_state:
             "status": "ĐANG KẾT NỐI...", "mode": "ONLINE"
         }
 
-# --- MQTT CALLBACK ---
+# --- MQTT SETUP ---
 def on_message(client, userdata, msg):
-    try:
-        globals()['GLOBAL_QUEUE'].put((msg.topic, msg.payload))
+    try: globals()['GLOBAL_QUEUE'].put((msg.topic, msg.payload))
     except: pass
 
 @st.cache_resource
 def setup_mqtt():
+    def on_connect(client, userdata, flags, reason_code, properties=None):
+        if reason_code == 0:
+            print("✅ [WEB] Kết nối Broker thành công!")
+            client.subscribe([(MQTT_TOPIC_DATA, 0), (MQTT_TOPIC_IMAGE, 0)])
+    
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    client.on_connect = on_connect
     client.on_message = on_message
     try:
         client.connect(MQTT_BROKER, MQTT_PORT, 60)
-        client.subscribe([(MQTT_TOPIC_DATA, 0), (MQTT_TOPIC_IMAGE, 0)])
         client.loop_start()
-    except: pass
+    except Exception as e: print(f"Lỗi MQTT: {e}")
     return client
 
 setup_mqtt()
 
 # --- HÀM LƯU CSV ---
 def save_data_to_csv(data_dict):
-    df_new = pd.DataFrame([data_dict])
-    if not os.path.exists(LOG_FILE):
-        df_new.to_csv(LOG_FILE, index=False)
-    else:
-        df_new.to_csv(LOG_FILE, mode='a', header=False, index=False)
+    try:
+        df_new = pd.DataFrame([data_dict])
+        if not os.path.exists(LOG_FILE): df_new.to_csv(LOG_FILE, index=False)
+        else: df_new.to_csv(LOG_FILE, mode='a', header=False, index=False)
+    except: pass
 
-# --- GIAO DIỆN (LAYOUT CỦA BẠN) ---
+# --- GIAO DIỆN ---
 st.markdown("<h1>🌊 TRUNG TÂM GIÁM SÁT & CẢNH BÁO LŨ LỤT</h1>", unsafe_allow_html=True)
 
-# Key Metrics
+# Metrics
 col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-with col_m1:
-    st.markdown(f"**🕒 Cập nhật lúc**")
-    time_placeholder = st.empty()
-with col_m2:
-    st.markdown(f"**📏 Mực nước (cm)**")
-    level_placeholder = st.empty()
-with col_m3:
-    st.markdown(f"**📡 Chế độ hoạt động**")
-    mode_placeholder = st.empty()
-with col_m4:
-    st.markdown(f"**🛡️ Trạng thái**")
-    status_placeholder = st.empty()
+with col_m1: st.markdown("**🕒 Cập nhật lúc**"); time_placeholder = st.empty()
+with col_m2: st.markdown("**📏 Mực nước (cm)**"); level_placeholder = st.empty()
+with col_m3: st.markdown("**📡 Chế độ hoạt động**"); mode_placeholder = st.empty()
+with col_m4: st.markdown("**🛡️ Trạng thái**"); status_placeholder = st.empty()
 
 st.write("") 
 
-# Main Content
+# Content
 col_left, col_right = st.columns([1.5, 1])
 with col_left:
     st.subheader("🎥 Camera AI (Real-time)")
     image_placeholder = st.empty()
-    image_placeholder.info("Đang chờ tín hiệu hình ảnh từ Edge Device...")
+    image_placeholder.info("Đang chờ tín hiệu hình ảnh...")
 
 with col_right:
     st.subheader("📈 Xu hướng mực nước")
     chart_placeholder = st.empty()
     stats_placeholder = st.empty()
 
-# Log Data
+# Log Data (Đã chỉnh sửa để mở rộng mặc định)
 st.write("")
-with st.expander("📋 Xem chi tiết Nhật ký dữ liệu (Log)", expanded=False):
-    # Tạo sẵn một cái khung rỗng để lát nữa cập nhật
+# expanded=True để mặc định mở ra cho giám khảo thấy
+with st.expander("📋 Xem chi tiết Nhật ký dữ liệu (Log)", expanded=True): 
     log_placeholder = st.empty()
 
 # Sidebar
@@ -148,20 +148,22 @@ with st.sidebar:
     st.header("⚙️ Điều khiển")
     if st.button("🗑️ Xóa toàn bộ lịch sử", type="primary"):
         if os.path.exists(LOG_FILE):
-            os.remove(LOG_FILE)
-            st.session_state["data"] = []
-            st.toast("Đã xóa dữ liệu!", icon="🗑️")
+            try:
+                os.remove(LOG_FILE)
+                st.session_state["data"] = []
+                st.toast("Đã xóa dữ liệu!", icon="🗑️")
+                time.sleep(1)
+            except: st.error("Lỗi xóa file")
 
     st.divider()
     st.markdown("### ℹ️ Thông tin Trạm")
     st.text(f"Broker: {MQTT_BROKER}")
-    st.caption("Phiên bản v2.0 - Edge AI Dashboard")
+    st.caption("Phiên bản v2.2 - Full Table View")
 
 st.markdown("""<div class="footer-status">Server đang lắng nghe... (Live Update)</div>""", unsafe_allow_html=True)
 
 # --- VÒNG LẶP CHÍNH ---
 while True:
-    # 1. Xử lý Hàng đợi
     mq = globals()['GLOBAL_QUEUE']
     while not mq.empty():
         try:
@@ -169,15 +171,11 @@ while True:
             
             if topic == MQTT_TOPIC_DATA:
                 data = json.loads(payload.decode())
-                
-                # Lưu xuống file (Ổ Cứng)
                 save_data_to_csv(data)
                 
-                # Cập nhật vào RAM (Hiển thị ngay lập tức)
                 st.session_state["data"].append(data)
-                
-                # Giới hạn RAM chỉ lưu 1000 dòng để web không bị lag
-                if len(st.session_state["data"]) > 1000: 
+                # Tăng giới hạn Buffer lên 5000 để lưu được nhiều hơn
+                if len(st.session_state["data"]) > 5000: 
                     st.session_state["data"].pop(0)
                 
                 st.session_state["latest_info"] = {
@@ -196,7 +194,7 @@ while True:
                     st.session_state["last_image"] = frame
         except: pass
 
-    # 2. Cập nhật Giao diện
+    # Update UI
     info = st.session_state["latest_info"]
     time_placeholder.info(f"{info['timestamp']}")
     level_placeholder.metric(label="Level", value=f"{info['water_level']}", label_visibility="collapsed")
@@ -219,20 +217,22 @@ while True:
         st.markdown(f"""<style>img {{ border: 4px solid {s_color} !important; }}</style>""", unsafe_allow_html=True)
         image_placeholder.image(st.session_state["last_image"], channels="RGB", use_container_width=True)
 
-    # Cập nhật Biểu đồ (Lấy từ RAM - Nhanh)
+    # Cập nhật Biểu đồ & Log
     if len(st.session_state["data"]) > 0:
         df_mem = pd.DataFrame(st.session_state["data"])
-        # Chỉ vẽ 50 điểm gần nhất cho mượt
         chart_placeholder.area_chart(df_mem.tail(50)[["timestamp", "water_level"]].set_index("timestamp"), color="#29b5e8" if info['status'] == "AN_TOAN" else "#ff4b4b")
         stats_placeholder.info(f"Max: {df_mem['water_level'].max()} cm | Min: {df_mem['water_level'].min()} cm")
 
-        # --- [SỬA LỖI] CẬP NHẬT LOG TỪ RAM ---
-        # Không đọc file CSV nữa, lấy trực tiếp từ biến data trong RAM ra hiển thị
-        # Lấy 10 dòng mới nhất
+        # --- [SỬA LỖI] BẢNG LOG TO VÀ FULL ---
+        # 1. Sắp xếp giảm dần (Mới nhất lên đầu)
+        df_show = df_mem.sort_values(by="timestamp", ascending=False)
+        
+        # 2. KHÔNG DÙNG .head(10) nữa -> Hiển thị toàn bộ
+        # 3. Tăng height lên 600px để bảng to, dễ kéo
         log_placeholder.dataframe(
-            df_mem.sort_values(by="timestamp", ascending=False).head(10), # Sắp xếp giảm dần thời gian
+            df_show, 
             use_container_width=True, 
-            height=300,
+            height=600, # <--- TĂNG CHIỀU CAO BẢNG Ở ĐÂY
             column_config={
                 "timestamp": "Thời gian",
                 "water_level": st.column_config.NumberColumn("Mực nước (cm)", format="%.1f"),

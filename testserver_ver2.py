@@ -136,9 +136,8 @@ with col_right:
     chart_placeholder = st.empty()
     stats_placeholder = st.empty()
 
-# Log Data (Đã chỉnh sửa để mở rộng mặc định)
+# Log Data 
 st.write("")
-# expanded=True để mặc định mở ra cho giám khảo thấy
 with st.expander("📋 Xem chi tiết Nhật ký dữ liệu (Log)", expanded=True): 
     log_placeholder = st.empty()
 
@@ -174,7 +173,7 @@ while True:
                 save_data_to_csv(data)
                 
                 st.session_state["data"].append(data)
-                # Tăng giới hạn Buffer lên 5000 để lưu được nhiều hơn
+                
                 if len(st.session_state["data"]) > 5000: 
                     st.session_state["data"].pop(0)
                 
@@ -223,16 +222,11 @@ while True:
         chart_placeholder.area_chart(df_mem.tail(50)[["timestamp", "water_level"]].set_index("timestamp"), color="#29b5e8" if info['status'] == "AN_TOAN" else "#ff4b4b")
         stats_placeholder.info(f"Max: {df_mem['water_level'].max()} cm | Min: {df_mem['water_level'].min()} cm")
 
-        # --- [SỬA LỖI] BẢNG LOG TO VÀ FULL ---
-        # 1. Sắp xếp giảm dần (Mới nhất lên đầu)
         df_show = df_mem.sort_values(by="timestamp", ascending=False)
-        
-        # 2. KHÔNG DÙNG .head(10) nữa -> Hiển thị toàn bộ
-        # 3. Tăng height lên 600px để bảng to, dễ kéo
         log_placeholder.dataframe(
             df_show, 
             use_container_width=True, 
-            height=600, # <--- TĂNG CHIỀU CAO BẢNG Ở ĐÂY
+            height=600, 
             column_config={
                 "timestamp": "Thời gian",
                 "water_level": st.column_config.NumberColumn("Mực nước (cm)", format="%.1f"),

@@ -95,7 +95,8 @@ class FloodDetector:
         # Vì Dashboard cần một con số để vẽ biểu đồ, ta quy đổi ngược:
         # Mực nước = Chiều cao ảnh - Vị trí Y của nước (nước càng cao thì số càng lớn)
         if water_detected:
-            calculated_level = height - highest_water_y
+            pixels_from_bottom = height - highest_water_y
+            calculated_level = pixels_from_bottom * 1.5
         else:
             calculated_level = 0
 

@@ -6,7 +6,7 @@ import os
 import time
 import streamlit.components.v1 as components 
 
-# --- CẤU HÌNH HỆ THỐNG (GIỮ NGUYÊN LOGIC) ---
+# --- CẤU HÌNH HỆ THỐNG ---
 MQTT_BROKER = "10.216.77.109"
 MQTT_PORT = 1883
 MQTT_TOPIC = "lu_lut/tram_01/data"
@@ -69,7 +69,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- PHẦN 1: XỬ LÝ MQTT (GIỮ NGUYÊN LOGIC) ---
+# --- PHẦN 1: XỬ LÝ MQTT ---
 @st.cache_resource
 def start_mqtt_listener():
     def on_connect(client, userdata, flags, rc, properties=None):
@@ -212,7 +212,7 @@ with col_right:
         # Lấy 50 điểm dữ liệu gần nhất để vẽ biểu đồ cho mượt
         chart_data = df.head(50).iloc[::-1]
         
-        # Vẽ biểu đồ vùng (Area Chart) nhìn đẹp hơn Line Chart
+        # Vẽ biểu đồ vùng (Area Chart) 
         st.area_chart(
             chart_data, 
             x="timestamp", 

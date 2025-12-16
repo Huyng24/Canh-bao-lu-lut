@@ -1,5 +1,4 @@
-# file radio, Nơi xử lý gửi tín hiệu khẩn cấp.
-
+# Nơi xử lý gửi tín hiệu khẩn cấp.
 # modules/radio_lora.py
 import time
 import winsound # Chỉ chạy trên Windows
@@ -32,7 +31,7 @@ def send_emergency_signal(muc_nuoc, trang_thai):
             print(f"⚠️ Không thể phát âm thanh: {e}")
 
         # 2. Gửi tín hiệu Radio/LoRa (Đi xa)
-        # (Ở đây là code giả lập in ra màn hình)
+        # (code giả lập in ra màn hình)
         print(f"🚨 [RADIO KÍCH HOẠT] GỬI TÍN HIỆU KHẨN CẤP!")
         print(f"   - Mực nước: {muc_nuoc} cm")
         print(f"   - Cảnh báo: {trang_thai}")

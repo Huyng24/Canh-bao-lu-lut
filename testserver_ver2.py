@@ -10,18 +10,26 @@ import numpy as np
 import queue 
 
 # --- CẤU HÌNH HỆ THỐNG ---
-MQTT_BROKER = "localhost"  # Hoặc IP ZeroTier
+MQTT_BROKER = "localhost" 
 MQTT_PORT = 1883
 MQTT_TOPIC_DATA = "lu_lut/tram_01/data"
 MQTT_TOPIC_IMAGE = "lu_lut/tram_01/image" 
 
-# [FIX] Dùng đường dẫn tuyệt đối cho Log
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-LOG_FILE = os.path.join(CURRENT_DIR, "flood_log2.csv")
+LOG_FILE = os.path.join(CURRENT_DIR, "flood_log.csv")
 
-# --- GLOBAL QUEUE ---
+# --- [FIX 1] GIỚI HẠN HÀNG ĐỢI (CHỐNG TRÀN RAM) ---
+# Chỉ cho phép lưu tối đa 100 gói tin chờ xử lý. 
+# Nếu vượt quá, nó sẽ tự động bị chặn hoặc drop.
 if 'GLOBAL_QUEUE' not in globals():
-    globals()['GLOBAL_QUEUE'] = queue.Queue()
+    globals()['GLOBAL_QUEUE'] = queue.Queue(maxsize=100) 
+
+# --- [FIX 2] DỌN DẸP KHI F5 (REFRESH) ---
+# Mỗi lần Web load lại, xóa sạch hàng đợi cũ để tránh bị "ngộp" dữ liệu cũ
+mq = globals()['GLOBAL_QUEUE']
+while not mq.empty():
+    try: mq.get_nowait()
+    except: pass
 
 # --- CẤU HÌNH TRANG WEB ---
 st.set_page_config(
@@ -48,15 +56,11 @@ st.markdown("""
     h1 { color: #0d47a1; font-family: 'Helvetica', sans-serif; text-align: center; margin-bottom: 20px; }
     [data-testid="stMetricValue"] { font-size: 2rem; font-weight: bold; }
     .footer-status { font-size: 0.8rem; color: #666; text-align: right; margin-top: 20px; }
-    
-    /* [MỚI] Tùy chỉnh bảng dữ liệu cho đẹp hơn */
-    [data-testid="stDataFrame"] {
-        width: 100%;
-    }
+    [data-testid="stDataFrame"] { width: 100%; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- LOAD DỮ LIỆU LOG ---
+# --- LOAD DATA ---
 if "data" not in st.session_state:
     if os.path.exists(LOG_FILE):
         try:
@@ -83,7 +87,18 @@ if "latest_info" not in st.session_state:
 
 # --- MQTT SETUP ---
 def on_message(client, userdata, msg):
-    try: globals()['GLOBAL_QUEUE'].put((msg.topic, msg.payload))
+    try:
+        q = globals()['GLOBAL_QUEUE']
+        
+        # --- [FIX 3] CHIẾN THUẬT DROP FRAME (QUAN TRỌNG) ---
+        # Nếu hàng đợi đầy, VỨT BỎ gói tin cũ nhất để nhét gói mới vào.
+        # Điều này đảm bảo Web luôn hiển thị cái MỚI NHẤT, không bị lag bởi cái cũ.
+        if q.full():
+            try:
+                q.get_nowait() # Vứt bỏ cái cũ nhất
+            except: pass
+            
+        q.put_nowait((msg.topic, msg.payload))
     except: pass
 
 @st.cache_resource
@@ -104,7 +119,6 @@ def setup_mqtt():
 
 setup_mqtt()
 
-# --- HÀM LƯU CSV ---
 def save_data_to_csv(data_dict):
     try:
         df_new = pd.DataFrame([data_dict])
@@ -112,10 +126,9 @@ def save_data_to_csv(data_dict):
         else: df_new.to_csv(LOG_FILE, mode='a', header=False, index=False)
     except: pass
 
-# --- GIAO DIỆN ---
+# --- LAYOUT ---
 st.markdown("<h1>🌊 TRUNG TÂM GIÁM SÁT & CẢNH BÁO LŨ LỤT</h1>", unsafe_allow_html=True)
 
-# Metrics
 col_m1, col_m2, col_m3, col_m4 = st.columns(4)
 with col_m1: st.markdown("**🕒 Cập nhật lúc**"); time_placeholder = st.empty()
 with col_m2: st.markdown("**📏 Mực nước (cm)**"); level_placeholder = st.empty()
@@ -124,7 +137,6 @@ with col_m4: st.markdown("**🛡️ Trạng thái**"); status_placeholder = st.e
 
 st.write("") 
 
-# Content
 col_left, col_right = st.columns([1.5, 1])
 with col_left:
     st.subheader("🎥 Camera AI (Real-time)")
@@ -136,12 +148,10 @@ with col_right:
     chart_placeholder = st.empty()
     stats_placeholder = st.empty()
 
-# Log Data 
 st.write("")
 with st.expander("📋 Xem chi tiết Nhật ký dữ liệu (Log)", expanded=True): 
     log_placeholder = st.empty()
 
-# Sidebar
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/9046/9046043.png", width=100)
     st.header("⚙️ Điều khiển")
@@ -153,28 +163,31 @@ with st.sidebar:
                 st.toast("Đã xóa dữ liệu!", icon="🗑️")
                 time.sleep(1)
             except: st.error("Lỗi xóa file")
-
     st.divider()
-    st.markdown("### ℹ️ Thông tin Trạm")
     st.text(f"Broker: {MQTT_BROKER}")
-    st.caption("Phiên bản v2.2 - Full Table View")
+    st.caption("Phiên bản v2.3 - Anti-Lag Optimized")
 
 st.markdown("""<div class="footer-status">Server đang lắng nghe... (Live Update)</div>""", unsafe_allow_html=True)
 
 # --- VÒNG LẶP CHÍNH ---
 while True:
     mq = globals()['GLOBAL_QUEUE']
-    while not mq.empty():
+    
+    # [FIX 4] Xử lý tối đa 20 tin mỗi lần lặp để tránh treo giao diện
+    # Nếu tin đến nhiều hơn khả năng xử lý, queue drop frame sẽ lo phần còn lại
+    process_count = 0
+    while not mq.empty() and process_count < 20:
         try:
             topic, payload = mq.get_nowait()
+            process_count += 1
             
             if topic == MQTT_TOPIC_DATA:
                 data = json.loads(payload.decode())
                 save_data_to_csv(data)
                 
                 st.session_state["data"].append(data)
-                
-                if len(st.session_state["data"]) > 5000: 
+                # Giới hạn RAM xuống 2000 dòng để nhẹ máy
+                if len(st.session_state["data"]) > 2000: 
                     st.session_state["data"].pop(0)
                 
                 st.session_state["latest_info"] = {
@@ -193,7 +206,7 @@ while True:
                     st.session_state["last_image"] = frame
         except: pass
 
-    # Update UI
+    # Render UI
     info = st.session_state["latest_info"]
     time_placeholder.info(f"{info['timestamp']}")
     level_placeholder.metric(label="Level", value=f"{info['water_level']}", label_visibility="collapsed")
@@ -216,17 +229,16 @@ while True:
         st.markdown(f"""<style>img {{ border: 4px solid {s_color} !important; }}</style>""", unsafe_allow_html=True)
         image_placeholder.image(st.session_state["last_image"], channels="RGB", use_container_width=True)
 
-    # Cập nhật Biểu đồ & Log
     if len(st.session_state["data"]) > 0:
         df_mem = pd.DataFrame(st.session_state["data"])
         chart_placeholder.area_chart(df_mem.tail(50)[["timestamp", "water_level"]].set_index("timestamp"), color="#29b5e8" if info['status'] == "AN_TOAN" else "#ff4b4b")
         stats_placeholder.info(f"Max: {df_mem['water_level'].max()} cm | Min: {df_mem['water_level'].min()} cm")
 
-        df_show = df_mem.sort_values(by="timestamp", ascending=False)
+        # Log Dataframe
         log_placeholder.dataframe(
-            df_show, 
+            df_mem.sort_values(by="timestamp", ascending=False), 
             use_container_width=True, 
-            height=600, 
+            height=600,
             column_config={
                 "timestamp": "Thời gian",
                 "water_level": st.column_config.NumberColumn("Mực nước (cm)", format="%.1f"),
@@ -235,4 +247,5 @@ while True:
             }
         )
 
+    # Sleep hợp lý để giảm tải CPU
     time.sleep(0.05)

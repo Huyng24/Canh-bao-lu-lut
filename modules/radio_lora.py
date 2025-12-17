@@ -16,8 +16,8 @@ def send_emergency_signal(muc_nuoc, trang_thai):
     global last_alert_time
     current_time = time.time()
 
-    # Chỉ kích hoạt nếu lần báo trước cách đây hơn 3 giây
-    if current_time - last_alert_time > 3.0:
+    # Chỉ kích hoạt nếu lần báo trước cách đây hơn 10 giây
+    if current_time - last_alert_time > 10.0:
         print("\n" + "="*40)
         print("\n>>> [NGUY HIỂM] KÍCH HOẠT HỆ THỐNG PHẢN ỨNG NHANH <<<")
         

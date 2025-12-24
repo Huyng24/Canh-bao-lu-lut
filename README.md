@@ -16,7 +16,7 @@
 2.  **Cơ chế "Safety Line" (Vạch An Toàn):** Thiết lập đường ranh giới ảo trên camera. Hệ thống tự động báo động khi mực nước dâng vượt qua vạch kẻ.
 3.  **Hoạt động bền bỉ (Fault Tolerance):**
     * **Online:** Gửi dữ liệu và hình ảnh đã xử lý về Web Dashboard qua MQTT.
-    * **Offline (Mất mạng):** Tự động lưu dữ liệu vào bộ nhớ đệm (Buffer). Kích hoạt còi hú/LoRa tại chỗ.
+    * **Offline (Mất mạng):** Tự động lưu dữ liệu vào bộ nhớ đệm (Buffer).
     * **Reconnect (Có mạng lại):** Tự động đồng bộ (Flush) dữ liệu cũ lên Server, không mất gói tin nào.
 4.  **Dashboard trực quan:** Giao diện Web (Streamlit) hiển thị Video AI (có vẽ khung cảnh báo), Biểu đồ mực nước lịch sử và Log chi tiết.
 5.  **Cảnh báo đa kênh:** Còi hú tại chỗ (Local Siren) + Cảnh báo trên Web (Remote Alert).

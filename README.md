@@ -1,4 +1,4 @@
-# 🌊 Hệ Thống Cảnh Báo Lũ Lụt Thông Minh (Edge AI Flood Warning System)
+# Hệ Thống Cảnh Báo Lũ Lụt Thông Minh (Edge AI Flood Warning System)
 
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
 ![YOLOv8](https://img.shields.io/badge/AI-YOLOv8-green)

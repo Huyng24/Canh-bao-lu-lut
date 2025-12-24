@@ -1,17 +1,14 @@
-# file cấu hình
+# Cài đặt cấu hình
 
-# Cấu hình MQTT Broker (Server trung tâm)
+# Cấu hình MQTT Broker 
 MQTT_BROKER = "10.147.20.109"
 MQTT_PORT = 1883
 MQTT_TOPIC_DATA = "lu_lut/tram_01/data"
 MQTT_TOPIC_STATUS = "lu_lut/tram_01/status"
-# Tùy chọn mở rộng: gửi ảnh AI đã xử lý lên web
+# Tùy chọn mở rộng: gửi video AI đã xử lý lên web
 MQTT_TOPIC_IMAGE = "lu_lut/tram_01/image"
 
 # Cấu hình Camera RTSP 
-# Bây giờ hệ thống Edge sẽ hoạt động như sau:
-# Camera -> FFmpeg (Copy) -> MediaMTX -> AI & Web
-
 RTSP_URL = "rtsp://10.147.20.109:8554/live" 
 
 # Ngưỡng cảnh báo (cm)

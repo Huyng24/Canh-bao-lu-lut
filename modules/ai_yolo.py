@@ -1,4 +1,6 @@
+# cấu hình AI phân tích
 # modules/ai_yolo.py
+
 import cv2
 import numpy as np
 from ultralytics import YOLO

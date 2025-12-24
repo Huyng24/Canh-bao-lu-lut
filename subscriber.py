@@ -1,3 +1,5 @@
+# Test giả lập tại máy local
+
 import paho.mqtt.client as mqtt
 import json
 import time

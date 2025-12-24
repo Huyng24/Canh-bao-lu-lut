@@ -1,3 +1,5 @@
+# Giao diện web hiển thị dashboard
+
 import streamlit as st
 import pandas as pd
 import paho.mqtt.client as mqtt

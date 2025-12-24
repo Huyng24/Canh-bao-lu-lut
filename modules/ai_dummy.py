@@ -1,5 +1,5 @@
 # file test giả lập module AI 
-# Bạn dùng file này để test. Khi bạn AI kia làm xong, chỉ cần thay hàm trong file này bằng hàm gọi AI thật.
+
 import random
 import time
 from config import LEVEL_ALARM_1, LEVEL_ALARM_2

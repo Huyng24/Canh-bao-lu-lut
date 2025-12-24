@@ -1,10 +1,9 @@
 # Nơi xử lý gửi tín hiệu khẩn cấp.
 # modules/radio_lora.py
-import time
-import winsound # Chỉ chạy trên Windows
 
-# Biến toàn cục để lưu thời gian lần cuối báo động
-# Giúp ngăn chặn việc kêu liên tục điếc tai
+import time
+import winsound
+
 last_alert_time = 0
 
 def send_emergency_signal(muc_nuoc, trang_thai):
@@ -23,8 +22,7 @@ def send_emergency_signal(muc_nuoc, trang_thai):
         
         # 1. Phát âm thanh cảnh báo (Tại chỗ)
         try:
-            # SND_ALIAS: Dùng âm thanh hệ thống (tiếng báo lỗi Windows)
-            # SND_ASYNC: Phát bất đồng bộ (Code vẫn chạy tiếp chứ không dừng lại chờ hết tiếng)
+            # SND_ALIAS: Dùng âm thanh hệ thống (giả lập bằng tiếng báo lỗi Windows)
             winsound.PlaySound("SystemHand", winsound.SND_ALIAS | winsound.SND_ASYNC)
             print("🔊 [CÒI HÚ] Đang phát âm thanh cảnh báo trên Laptop...")
         except Exception as e:

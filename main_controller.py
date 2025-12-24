@@ -1,3 +1,5 @@
+# Bộ não chính của thiết bị biên
+
 import time
 import json
 import cv2
